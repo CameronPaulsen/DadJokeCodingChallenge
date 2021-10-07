@@ -1,0 +1,133 @@
+﻿@page "/"
+@using System.Text.Json.Serialization
+
+@inject HttpClient Http
+
+
+<h1> Dad Jokes!</h1>
+
+
+@if (singleJoke == null)
+{
+    <button @onclick="GetJoke">Tell me a joke!</button>
+}
+else
+{
+    <div>
+        <strong>@singleJoke</strong>
+    </div>
+    <button @onclick="GetJoke">Tell me another!</button>
+}
+<br/>
+<hr/>
+<br/>
+
+
+@if (searchedJokes == null)
+{
+    <input @bind="jokeSearchTerm"/>
+    <p class="validation-message" >@error</p>
+    <button @onclick="SearchJoke">Find me my jokes!</button>
+}
+else
+{
+    <div>
+        <strong>Found these jokes for [@jokeSearchTerm]</strong>
+    </div>
+
+    <div>
+        <p>Short Jokes:</p>
+        <ul>
+            @foreach (var joke in searchedJokes.ShortJokes)
+            {
+                <li>
+                    @joke
+                </li>
+            }
+        </ul>
+
+        <p>Medium Jokes:</p>
+        <ul>
+            @foreach (var joke in searchedJokes.MediumJokes)
+            {
+                <li>
+                    @joke
+                </li>
+            }
+        </ul>
+
+        <p>Long Jokes:</p>
+        <ul>
+            @foreach (var joke in searchedJokes.LongJokes)
+            {
+                <li>
+                    @joke
+                </li>
+            }
+        </ul>
+    </div>
+    <br/>
+    <div>
+        <input @bind="jokeSearchTerm"/>
+        <p>@error</p>
+        <button @onclick="SearchJoke">Find me more!</button>
+    </div>
+}
+
+
+
+@code {
+    private string singleJoke;
+
+    private string error;
+    private string jokeSearchTerm;
+    private JokeGroup searchedJokes;
+
+    private string baseUrl = "https://localhost:44312/DadJoke";
+
+
+    private async Task GetJoke()
+    {
+        var requestMessage = new HttpRequestMessage()
+        {
+            Method = new HttpMethod("GET"),
+            RequestUri = new Uri("https://localhost:44312/DadJoke")
+        };
+
+        var response = await Http.SendAsync(requestMessage);
+        var responseStatusCode = response.StatusCode;
+
+        singleJoke = await response.Content.ReadAsStringAsync();
+    }
+
+    private async Task SearchJoke()
+    {
+        searchedJokes = null;
+
+        if (string.IsNullOrEmpty(jokeSearchTerm))
+        {
+            error = "Please enter a search term";
+            return;
+        }
+
+        error = "";
+
+        var requestMessage = new HttpRequestMessage()
+        {
+            Method = new HttpMethod("POST"),
+            RequestUri = new Uri($"{baseUrl}/_search/{jokeSearchTerm}")
+        };
+
+        var response = await Http.SendAsync(requestMessage);
+        var responseStatusCode = response.StatusCode;
+
+        searchedJokes = System.Text.Json.JsonSerializer.Deserialize<JokeGroup>(await response.Content.ReadAsStringAsync());
+    }
+
+    public record JokeGroup(
+        [property: JsonPropertyName("shortJokes")] IEnumerable<string> ShortJokes,
+        [property: JsonPropertyName("mediumJokes")] IEnumerable<string> MediumJokes,
+        [property: JsonPropertyName("longJokes")] IEnumerable<string> LongJokes
+        );
+
+}
